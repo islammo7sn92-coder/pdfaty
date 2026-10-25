@@ -239,7 +239,10 @@ def ocr_pdf(ctx: Context, path: str, password: str, langs: str, pages: list[int]
         return img
 
     results: dict[int, list[dict]] = {}
-    workers = max(1, min(4, (os.cpu_count() or 2)))
+    # parallel tesseract processes; on small instances (<=2 GB per worker) run one at a time
+    env_threads = os.environ.get("PDFATY_OCR_THREADS")
+    mem_mb = int(os.environ.get("PDFATY_WORKER_MEMORY_MB", "3072") or 3072)
+    workers = int(env_threads) if env_threads else (1 if mem_mb <= 2048 else max(1, min(4, os.cpu_count() or 2)))
     done = 0
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futures = {}
@@ -284,6 +287,7 @@ def ocr(ctx: Context) -> None:
     }
     results, geo, skipped = ocr_pdf(ctx, f.path, ctx.password_for(ctx.inputs.index(f)), langs, pages, opts,
                                     lambda p: ctx.progress(p * 0.9, "ocr"))
+    _drop_words_over_existing_text(f.path, ctx.password_for(ctx.inputs.index(f)), pdf, results, geo)
 
     def draw(c, i, g):
         words = results.get(i)
@@ -321,6 +325,42 @@ def ocr(ctx: Context) -> None:
     low = [s["page"] + 1 for s in stats if s["low"]]
     ctx.result = {"pages_ocr": len(results), "skipped_pages": [s + 1 for s in skipped], "stats": stats,
                   "low_confidence_pages": low, "languages": langs}
+
+
+def _drop_words_over_existing_text(path: str, password: str, pdf, results: dict, geo: dict) -> None:
+    """Pages may already carry a little real text (e.g. digits in a header of a 'Print to PDF'
+    file). Recognised words lying on top of existing text are dropped so the text is not
+    duplicated (which would break search)."""
+    from .extract import page_chars
+    from .geom import geometry
+
+    doc = pdfium.PdfDocument(path, password=password or None)
+    try:
+        for i, words in results.items():
+            page = doc[i]
+            tp = page.get_textpage()
+            chars = [c for c in page_chars(page, tp, geometry(pdf.pages[i])) if c.ch.strip()]
+            tp.close()
+            page.close()
+            if not chars:
+                continue
+            px = 1 / geo[i][0]  # pixels per point
+            boxes = [(c.l * px, c.t * px, c.r * px, c.b * px) for c in chars]
+
+            def covered(w) -> bool:
+                l, t, r, b = w["l"], w["t"], w["l"] + w["w"], w["t"] + w["h"]
+                area = max(1, (r - l) * (b - t))
+                inter = 0.0
+                for bl, bt, br, bb in boxes:
+                    iw = min(r, br) - max(l, bl)
+                    ih = min(b, bb) - max(t, bt)
+                    if iw > 0 and ih > 0:
+                        inter += iw * ih
+                return inter / area > 0.3
+
+            results[i] = [w for w in words if not covered(w)]
+    finally:
+        doc.close()
 
 
 def pikepdf_string(s: str):

@@ -239,7 +239,9 @@ function SearchPanel() {
   };
   const noText = useMemo(() => {
     const c = getTextCache(key);
-    return c ? c.every((p) => p.every((it) => !it.str.trim())) : false;
+    if (!c) return false;
+    const letters = c.reduce((n, p) => n + p.reduce((m, it) => m + (it.str.match(/[\p{L}\p{N}]/gu)?.length ?? 0), 0), 0);
+    return letters < 20 * Math.min(c.length, 3);
   }, [hits, key]);
 
   return (

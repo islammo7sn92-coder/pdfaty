@@ -11,6 +11,38 @@ import Viewer from "../components/Viewer";
 import Sidebar from "../components/Sidebar";
 import ToolPanel from "../components/ToolPanel";
 import { LangThemeButtons, Logo } from "./Header";
+import { openTool } from "../components/ToolPanel";
+
+/** Warn when the document has (almost) no extractable text: scanned pages or text converted
+ * to outlines (e.g. "Microsoft Print to PDF"). Search, copy and text editing need OCR first. */
+function NoTextBanner() {
+  const t = useT();
+  const doc = useStore((s) => s.doc);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    setShow(false);
+    if (!doc) return;
+    let alive = true;
+    (async () => {
+      let letters = 0;
+      const n = Math.min(doc.numPages, 3);
+      for (let i = 0; i < n; i++) {
+        const tc = await (await doc.pdf.getPage(i + 1)).getTextContent();
+        for (const it of tc.items as any[]) letters += (String(it.str ?? "").match(/[\p{L}\p{N}]/gu)?.length ?? 0);
+      }
+      if (alive && letters < 20 * n) setShow(true);
+    })().catch(() => undefined);
+    return () => { alive = false; };
+  }, [doc?.id, doc?.version]);
+  if (!show) return null;
+  return (
+    <div className="notext-banner" role="status">
+      <span>{t("notext.body")}</span>
+      <button type="button" className="btn btn-primary btn-sm" onClick={() => openTool("ocr")}>{t("notext.ocr")}</button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShow(false)}>{t("common.close")}</button>
+    </div>
+  );
+}
 
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 
@@ -117,6 +149,7 @@ export default function Workspace() {
           <span className="hide-md"><LangThemeButtons /></span>
         </div>
       </header>
+      <NoTextBanner />
       <div className="ws-body" id="main">
         <Sidebar />
         <main className="ws-center">

@@ -93,6 +93,12 @@ def analyse_page(page, pi: int) -> list[dict]:
     except pikepdf.PdfError:
         return []
     found: list[dict] = []
+    # independent tracker of filled vector shapes by fill colour: catches watermarks that
+    # were converted to outlines ("Microsoft Print to PDF", design tools, scanners' software)
+    fill = (0.0, 0.0, 0.0)
+    fill_stack: list[tuple] = []
+    cpath = None
+    color_fills: dict[tuple, list[tuple[int, int]]] = {}
     stack: list[tuple[int, str, object]] = []
     rot_stack: list[bool] = []
     ctm_rotated = False
@@ -107,6 +113,28 @@ def analyse_page(page, pi: int) -> list[dict]:
     xobjs = _xobjects(page)
     for k, ins in enumerate(instrs):
         o = _op(ins)
+        try:
+            if o == "q":
+                fill_stack.append(fill)
+            elif o == "Q":
+                fill = fill_stack.pop() if fill_stack else (0.0, 0.0, 0.0)
+            elif o in ("rg", "sc", "scn") and len(ins.operands) == 3:
+                fill = tuple(round(float(v), 3) for v in ins.operands)
+            elif o in ("g",) or (o in ("sc", "scn") and len(ins.operands) == 1 and not isinstance(ins.operands[0], pikepdf.Name)):
+                v = round(float(ins.operands[0]), 3)
+                fill = (v, v, v)
+            elif o == "k" or (o in ("sc", "scn") and len(ins.operands) == 4):
+                c_, m_, y_, k_ = (float(v) for v in ins.operands)
+                fill = tuple(round((1 - min(1, x + k_)), 3) for x in (c_, m_, y_))
+        except (ValueError, TypeError):
+            pass
+        if o in ("m", "re") and cpath is None:
+            cpath = k
+        elif o in ("f", "F", "f*") and cpath is not None:
+            color_fills.setdefault(fill, []).append((cpath, k))
+            cpath = None
+        elif o in ("n", "S", "s", "B", "B*", "b", "b*"):
+            cpath = None
         if o in ("BDC", "BMC"):
             tag = str(ins.operands[0]) if ins.operands else ""
             props = _resolve_props(page, ins.operands[1]) if o == "BDC" and len(ins.operands) > 1 else None
@@ -199,6 +227,12 @@ def analyse_page(page, pi: int) -> list[dict]:
             if sub == "/Image":
                 entry["size"] = [int(xo.get("/Width", 0)), int(xo.get("/Height", 0))]
             found.append(entry)
+    for color, ranges in color_fills.items():
+        if max(color) < 0.25 or min(color) > 0.97 or len(ranges) < 8:
+            continue  # black body text / white fills / a few isolated shapes
+        hexc = "#%02x%02x%02x" % tuple(int(round(v * 255)) for v in color)
+        found.append({"id": f"color:{hexc[1:]}", "kind": "watermark", "source": "color", "ranges": ranges,
+                      "label": f"{hexc} × {len(ranges)}", "color": hexc})
     # Post-process page-level facts
     for f in found:
         f["page"] = pi
@@ -227,7 +261,7 @@ def analyse(pdf: pikepdf.Pdf, max_pages: int = 500, progress=None) -> dict:
                 scanned_pages += 1
                 continue
             c = occ.setdefault(f["id"], {"id": f["id"], "kind": f["kind"], "source": f["source"], "label": f["label"],
-                                         "pages": [], "count": 0})
+                                         "pages": [], "count": 0, "color": f.get("color")})
             if pi not in c["pages"]:
                 c["pages"].append(pi)
             c["count"] += 1
@@ -246,7 +280,7 @@ def analyse(pdf: pikepdf.Pdf, max_pages: int = 500, progress=None) -> dict:
     total = min(n, max_pages)
     cands = []
     for c in occ.values():
-        if c["source"] in ("xobject", "text"):
+        if c["source"] in ("xobject", "text", "color"):
             # only objects repeated on many pages look like a watermark
             if total >= 2 and len(c["pages"]) < max(2, int(total * 0.5)):
                 continue
@@ -256,7 +290,7 @@ def analyse(pdf: pikepdf.Pdf, max_pages: int = 500, progress=None) -> dict:
         c["page_count"] = len(c["pages"])
         c["pages"] = c["pages"][:50]
         cands.append(c)
-    order = {"pdfaty": 0, "artifact": 1, "layer": 2, "annotation": 3, "text": 4, "fill": 5, "xobject": 6}
+    order = {"pdfaty": 0, "artifact": 1, "layer": 2, "annotation": 3, "text": 4, "color": 5, "fill": 6, "xobject": 7}
     cands.sort(key=lambda c: (order.get(c["source"], 9), -c["page_count"]))
     return {"candidates": cands, "scanned_pages": scanned_pages, "pages": n}
 
@@ -308,10 +342,18 @@ def watermark_remove(ctx: Context) -> None:
                if (not kinds or c["kind"] in kinds) and (c["source"] in auto_sources or ctx.p("aggressive"))]
         if not ids:
             raise UserError("nothing_to_remove", "embedded" if info["scanned_pages"] else None)
+    preview = ctx.p("preview_page")
+    if preview is not None:
+        pi = int(preview)
+        if pi < 0 or pi >= len(pdf.pages):
+            raise UserError("page_out_of_range")
+        for k in range(len(pdf.pages) - 1, -1, -1):
+            if k != pi:
+                del pdf.pages[k]
     removed = remove_candidates(pdf, set(map(str, ids)))
-    if not removed:
+    if not removed and preview is None:
         raise UserError("nothing_to_remove")
-    ctx.save_pdf(pdf, f.stem + ".pdf")
+    ctx.save_pdf(pdf, ("preview" if preview is not None else f.stem) + ".pdf")
     ctx.result = {"removed": removed}
 
 

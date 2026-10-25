@@ -607,3 +607,42 @@ def test_digital_signature_arabic_name_always_valid(run, samples, tmp_path):
     ctx2, _ = run("signatures_verify", {}, [outs[0]])
     # the op self-verifies and falls back to an invisible signature when needed
     assert ctx2.result["signatures"][0]["valid"]
+
+
+def test_outlined_watermark_detected_and_removed(run, tmp_path):
+    """'Microsoft Print to PDF' style: text and watermark are both vector outlines; the
+    watermark differs only by its light fill colour."""
+    from reportlab.pdfgen import canvas
+
+    p = str(tmp_path / "outlined.pdf")
+    c = canvas.Canvas(p)
+    for _ in range(3):
+        c.setFillGray(0)
+        for i in range(40):  # "body text" glyph outlines
+            c.rect(60 + (i % 10) * 40, 700 - (i // 10) * 30, 20, 12, stroke=0, fill=1)
+        c.saveState()
+        c.setFillColorRGB(0.765, 0.765, 0.765)
+        c.translate(300, 400)
+        c.rotate(45)
+        for i in range(30):  # watermark glyph outlines
+            path = c.beginPath()
+            path.moveTo(i * 12, 0)
+            path.curveTo(i * 12 + 4, 10, i * 12 + 8, 10, i * 12 + 10, 0)
+            path.close()
+            c.drawPath(path, stroke=0, fill=1)
+        c.restoreState()
+        c.showPage()
+    c.save()
+    ctx, _ = run("watermark_analyze", {}, [p])
+    cand = [x for x in ctx.result["candidates"] if x["source"] == "color"]
+    assert cand and cand[0]["page_count"] == 3 and cand[0]["color"] == "#c3c3c3"
+    _, prev = run("watermark_remove", {"ids": [cand[0]["id"]], "preview_page": 1}, [p])
+    with pikepdf.open(prev[0]) as pp:
+        assert len(pp.pages) == 1
+    _, outs = run("watermark_remove", {"ids": [cand[0]["id"]]}, [p])
+    ctx2, _ = run("watermark_analyze", {}, [outs[0]])
+    assert not [x for x in ctx2.result["candidates"] if x["source"] == "color"]
+    doc = pdfium.PdfDocument(outs[0])
+    img = doc[0].render(scale=0.5).to_pil().convert("RGB")
+    assert (195, 195, 195) not in set(img.getdata())  # grey watermark gone
+    assert (0, 0, 0) in set(img.getdata())  # black content kept

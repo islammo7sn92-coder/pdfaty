@@ -932,5 +932,9 @@ const en: Record<string, string> = {
   "err.bad_certificate": "Invalid certificate file or wrong certificate password.",
   "err.certificate_required": "Choose the certificate file.",
   "err.signing_failed": "Could not create a valid signature with this certificate.",
+  "wm.src.color": "Repeated coloured shapes (outlined watermark)",
+  "wm.srcHelp.color": "Light-coloured shapes repeated on most pages — common in \"Print to PDF\" files. Use the preview to check before removing.",
+  "notext.body": "This file has no searchable/copyable text (scanned pages, or text converted to outlines such as \"Microsoft Print to PDF\"). Search and text editing need OCR first.",
+  "notext.ocr": "Run OCR",
 };
 export default en;

@@ -2,15 +2,18 @@ import { useEffect, useState } from "react";
 import { useT } from "../../i18n";
 import { confirmDialog, currentFile, docParams, runOnDoc, runOp } from "../../lib/actions";
 import { toast, useStore } from "../../lib/store";
+import { PdfPreviewModal } from "./common";
 import { Badge, Button, Empty } from "../ui";
 
-interface Cand { id: string; kind: string; source: string; label: string; pages: number[]; page_count: number; removable: boolean }
+interface Cand { id: string; kind: string; source: string; label: string; pages: number[]; page_count: number; removable: boolean; color?: string }
 
 export default function WatermarkRemove() {
   const t = useT();
   const version = useStore((s) => s.doc?.version);
   const [data, setData] = useState<{ candidates: Cand[]; scanned_pages: number; pages: number } | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [preview, setPreview] = useState<Blob | null>(null);
+  const page = useStore((s) => s.page);
 
   const analyze = async () => {
     const f = currentFile();
@@ -21,6 +24,13 @@ export default function WatermarkRemove() {
     setChosen(new Set((res.result.candidates as Cand[]).filter((c) => ["pdfaty", "artifact", "layer", "annotation"].includes(c.source)).map((c) => c.id)));
   };
   useEffect(() => { setData(null); }, [version]);
+
+  const doPreview = async () => {
+    const f = currentFile();
+    if (!f || !chosen.size) return;
+    const res = await runOp("watermark_remove", [f], docParams({ ids: Array.from(chosen), preview_page: page }), t("common.preview"));
+    if (res?.files[0]) setPreview(res.files[0].blob);
+  };
 
   const remove = async () => {
     if (!chosen.size) return;
@@ -42,7 +52,7 @@ export default function WatermarkRemove() {
             <label key={c.id} className="cand">
               <input type="checkbox" checked={chosen.has(c.id)} onChange={(e) => { const n = new Set(chosen); e.target.checked ? n.add(c.id) : n.delete(c.id); setChosen(n); }} />
               <div>
-                <div><Badge kind={c.kind === "background" ? "info" : "warn"}>{t(`wm.kind.${c.kind}`)}</Badge> <strong>{t(`wm.src.${c.source}`)}</strong></div>
+                <div>{c.color && <span className="swatch" style={{ background: c.color }} />}<Badge kind={c.kind === "background" ? "info" : "warn"}>{t(`wm.kind.${c.kind}`)}</Badge> <strong>{t(`wm.src.${c.source}`)}</strong></div>
                 <div className="muted small" dir="auto">{c.label}</div>
                 <div className="muted small">{t("wm.onPages", { n: c.page_count, of: data.pages })}</div>
                 <div className="small">{t(`wm.srcHelp.${c.source}`)}</div>
@@ -50,10 +60,14 @@ export default function WatermarkRemove() {
             </label>
           ))}
           {data.scanned_pages > 0 && <p className="warn-text">{t("wm.embedded", { n: data.scanned_pages })}</p>}
-          <Button variant="danger" onClick={remove} disabled={!chosen.size}>{t("wm.removeSelected", { n: chosen.size })}</Button>
+          <div className="tool-actions">
+            <Button onClick={doPreview} disabled={!chosen.size}>{t("common.previewPage", { n: page + 1 })}</Button>
+            <Button variant="danger" onClick={remove} disabled={!chosen.size}>{t("wm.removeSelected", { n: chosen.size })}</Button>
+          </div>
           <p className="muted small">{t("wm.after")}</p>
         </div>
       )}
+      <PdfPreviewModal blob={preview} onClose={() => setPreview(null)} title={t("common.preview")} />
     </div>
   );
 }
