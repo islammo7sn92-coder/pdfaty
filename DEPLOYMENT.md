@@ -31,6 +31,27 @@
 
 ---
 
+## الخيار 1-ب (مجاني): Cloudflare Tunnel من جهازك
+Cloudflare المجاني لا يستطيع تشغيل Python وOCR وLibreOffice بنفسه (Workers/Pages للواجهة فقط،
+وCloudflare Containers تحتاج خطة مدفوعة 5$ شهريًا). الحل المجاني: يشتغل التطبيق على جهازك أو خادمك
+بـ Docker، وCloudflare Tunnel يعطيه رابط HTTPS عام بدون فتح منافذ وبدون IP ثابت.
+
+1. ثبّت Docker و`cloudflared`.
+2. رابط سريع مؤقت (بدون حساب):
+   ```bash
+   ./scripts/cloudflare-tunnel.sh
+   ```
+   سيظهر رابط مثل `https://xxxx.trycloudflare.com` — يتغير مع كل تشغيل، ويعمل طالما الجهاز شغال.
+3. رابط ثابت على دومين خاص (حساب Cloudflare مجاني + دومين مضاف إليه):
+   Cloudflare Dashboard → Zero Trust → Networks → Tunnels → Create tunnel → انسخ الـ Token،
+   وأضف Public Hostname (مثل `pdf.example.com`) يشير إلى `http://localhost:7860`، ثم:
+   ```bash
+   TUNNEL_TOKEN=xxxx ./scripts/cloudflare-tunnel.sh
+   ```
+   ارفع حد حجم الرفع في الخطة المجانية: Cloudflare يقبل طلبات حتى 100 MB.
+
+---
+
 ## الخيار 2: Render.com
 `render.yaml` جاهز (Blueprint). الخطة المجانية 512 MB RAM فقط: العرض والأدوات الخفيفة تعمل،
 لكن LibreOffice وOCR للملفات الكبيرة قد يفشلان لنفاد الذاكرة. خطة Starter مدفوعة إن احتجت.
