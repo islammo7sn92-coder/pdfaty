@@ -1,0 +1,17 @@
+# Render.com blueprint (Docker). Note: LibreOffice + OCR need about 1–2 GB RAM;
+# Render's free instance (512 MB) can run viewing and light tools but conversions/OCR
+# may run out of memory. Prefer Hugging Face Spaces (free, 16 GB RAM) — see DEPLOYMENT.md.
+services:
+  - type: web
+    name: pdfaty
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PDFATY_MAX_CONCURRENT_JOBS
+        value: "1"
+      - key: PDFATY_WORKER_MEMORY_MB
+        value: "1536"
+      - key: PDFATY_MAX_UPLOAD_MB
+        value: "50"

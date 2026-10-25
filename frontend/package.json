@@ -1,0 +1,34 @@
+{
+  "name": "pdfaty-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build",
+    "typecheck": "tsc --noEmit -p .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "predev": "node scripts/copy-pdfjs-assets.mjs",
+    "prebuild": "node scripts/copy-pdfjs-assets.mjs",
+    "i18n": "node scripts/check-i18n.mjs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-sans-arabic": "5.1.0",
+    "fflate": "0.8.3",
+    "lucide-react": "0.460.0",
+    "pdfjs-dist": "5.4.624",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "5.6.3",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,19 @@
+# Local / self-hosted run:  docker compose up --build   ->  http://localhost:7860
+services:
+  pdfaty:
+    build: .
+    image: pdfaty:latest
+    ports:
+      - "7860:7860"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "7860"
+    tmpfs:
+      - /tmp:size=4g
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    mem_limit: 4g

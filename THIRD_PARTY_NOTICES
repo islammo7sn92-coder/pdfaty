@@ -1,0 +1,96 @@
+PDFATY — THIRD-PARTY NOTICES
+============================
+
+PDFATY uses the open-source components listed below. Each remains under its own
+license. All of them allow free use, including commercial use, under the stated
+conditions. Nothing here is a paid or proprietary service; PDFATY calls no external
+API.
+
+Summary of obligations
+----------------------
+* Permissive licenses (MIT, BSD, ISC, Apache-2.0, PSF, Zlib, CC0, MIT-CMU): keep the
+  copyright and license notices when redistributing.
+* MPL-2.0 (pikepdf, certifi, LibreOffice): file-level copyleft. PDFATY uses these
+  unmodified. If you modify their source files and distribute them, publish those
+  modified files under MPL-2.0.
+* LGPL-3.0 (python-bidi): used unmodified as a dynamically imported library. If you
+  distribute PDFATY (e.g. a Docker image), keep the license text and allow users to
+  replace the library (it is a normal pip package, so this is satisfied).
+* SIL Open Font License 1.1 (Noto, IBM Plex Sans Arabic): fonts may be embedded and
+  redistributed; they may not be sold on their own and renamed derivatives must not
+  use the reserved font names.
+* Tesseract language data (Apache-2.0) and LibreOffice (MPL-2.0) are installed as
+  separate programs from the operating-system packages in the Docker image.
+
+Backend (Python, see backend/requirements.txt)
+----------------------------------------------
+Package                   Version     License
+fastapi                   0.162.0     MIT
+starlette                 1.7.0       BSD-3-Clause
+uvicorn                   0.54.0      BSD-3-Clause
+python-multipart          0.0.32      Apache-2.0
+pydantic / pydantic-core  2.13 / 2.46 MIT
+anyio, h11, idna, click               MIT / MIT / BSD-3-Clause / BSD-3-Clause
+pikepdf (bundles qpdf)    10.17.0     MPL-2.0 (qpdf: Apache-2.0)
+pypdfium2 (PDFium)        5.13.0      Apache-2.0 / BSD-3-Clause (PDFium: BSD-3-Clause)
+pdfplumber                0.11.10     MIT
+pdfminer.six              20260107    MIT
+Pillow                    13.0.0      MIT-CMU (HPND)
+numpy                     2.5.3       BSD-3-Clause (+ bundled 0BSD, MIT, Zlib, CC0)
+reportlab                 5.0.1       BSD
+arabic-reshaper           3.0.1       MIT
+python-bidi               0.6.12      LGPL-3.0
+python-docx               1.2.0       MIT
+python-pptx               1.0.2       MIT
+XlsxWriter                3.2.9       BSD-2-Clause (dependency of python-pptx)
+openpyxl / et_xmlfile     3.1.5/2.0.0 MIT
+lxml                      6.1.3       BSD-3-Clause
+pyHanko                   0.38.0      MIT
+pyhanko-certvalidator     0.33.0      MIT
+asn1crypto, oscrypto, uritools, tzlocal MIT
+cryptography              50.0.1      Apache-2.0 OR BSD-3-Clause
+cffi / pycparser                      MIT-0 / BSD-3-Clause
+certifi                   2026.10.18  MPL-2.0
+aiohttp, yarl, multidict, frozenlist, aiosignal, propcache, aiohappyeyeballs
+                                      Apache-2.0 / MIT / PSF (pyHanko dependencies; PDFATY
+                                      never performs network requests with them)
+attrs, annotated-types, typing-inspection, annotated-doc, charset-normalizer  MIT
+typing_extensions                     PSF-2.0
+packaging                             Apache-2.0 OR BSD-2-Clause
+opentelemetry-api                     Apache-2.0
+
+Test-only: pytest (MIT), pytest-timeout (MIT), httpx (BSD-3-Clause).
+
+System programs (Docker image, Debian packages)
+-----------------------------------------------
+Tesseract OCR 5 + ara/eng traineddata   Apache-2.0
+LibreOffice (headless, document import) MPL-2.0
+Noto Sans / Noto Serif / Noto Sans Arabic / Noto Naskh Arabic / Noto Kufi Arabic
+                                        SIL OFL 1.1
+DejaVu fonts                            Bitstream Vera / public-domain style license
+Liberation, Carlito, Caladea fonts      SIL OFL 1.1
+
+Fonts shipped in this repository (backend/app/fonts)
+----------------------------------------------------
+NotoSans-*, NotoSerif-*, NotoSansArabic-*, NotoNaskhArabic-*   SIL OFL 1.1 (Google)
+DejaVuSansMono                                                 DejaVu fonts license
+These fonts are embedded (subset) into PDFs created by PDFATY for added text,
+watermarks, page numbers, OCR text layers and reports, which the OFL permits.
+
+Frontend (npm, see frontend/package.json)
+-----------------------------------------
+Package                          Version   License
+react / react-dom / scheduler    18.3.1    MIT
+pdfjs-dist (PDF.js)              5.4.624   Apache-2.0
+fflate                           0.8.3     MIT
+lucide-react                     0.460.0   ISC
+@fontsource/ibm-plex-sans-arabic 5.1.0     SIL OFL 1.1 (font), MIT (package)
+loose-envify / js-tokens                   MIT
+(@napi-rs/canvas is an optional Node-only dependency of pdfjs-dist; it is not part of
+the browser bundle.)
+
+Development only: vite (MIT), @vitejs/plugin-react (MIT), typescript (Apache-2.0),
+vitest (MIT), @playwright/test (Apache-2.0), @types/* (MIT).
+
+Full license texts are included in each package (site-packages/*/LICENSE*,
+node_modules/*/LICENSE*) and in /usr/share/doc/* for the Debian packages.

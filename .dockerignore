@@ -1,0 +1,11 @@
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+frontend/e2e/.samples
+frontend/public/pdfjs
+.git
+*.log
+.env
